@@ -48,6 +48,7 @@ class Cluster:
              
     def __agglomerative(self):
         pass
+    
     def __k_means(self):
         n,d = self.data.shape
         
@@ -77,6 +78,7 @@ class Cluster:
         KMdf = self.data.copy()
         KMdf['cluster'] = cluster
         return KMdf
+    
     def __l2_distance(self,x,y):
         """
         Returns the euclidean distance between two points in R^n
