@@ -2,11 +2,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import multivariate_normal
 class Cluster:
-    def __init__(self, data = None, method = 'k_means', k = None, iter = None):
+    #----------------------------Constructor----------------------------
+    def __init__(self, data = None, method = 'k_means', k = None, iter = 5):
         """
         Current class performs data classification under numeric data,
-        using distinct algorithms (k_means, agglomerative)
+        using distinct algorithms (k_means, GMM_EM)
         
         Parameters
         ----------
@@ -14,8 +16,9 @@ class Cluster:
             Dataset to classify.
             If data is not set, it will be None by default.
             
-        method: 'k_means', 'agglomerative' - str
-            Method that performs the classification. It'll be 'k_means' by default    
+        method: str
+            Method that performs the classification. It'll be 'k_means' by default.
+            You can choose also the 'GMM_EM' method, based on Gaussian Mixture Models
             
         k: int
             Number of clusters.
@@ -24,13 +27,15 @@ class Cluster:
         iter:
             Number of iterations.
             Number of iterations that we want to compute using k_means method.
-            It'll be None by default
+            It'll be 5 by default
         """
+        #------------------Class attributtes------------------
         self.data = data
         self.method = method
         self.k = k
         self.iter = iter
         
+    #----------------------Class Methods----------------------
     def fit_transform(self):
         """
         fit to data, then transform it.
@@ -43,12 +48,14 @@ class Cluster:
         else:
             if self.method == 'k_means':
                 return self.__k_means()
+            if self.method == 'GMM_EM':
+                return self.__GMM()
             if self.method == 'agglomerative':
                 return self.__agglomerative()   
-             
+    #------------------------------------------------------------------------
     def __agglomerative(self):
         pass
-    
+    #------------------------------------------------------------------------
     def __k_means(self):
         n,d = self.data.shape
         
@@ -78,7 +85,6 @@ class Cluster:
         KMdf = self.data.copy()
         KMdf['cluster'] = cluster
         return KMdf
-    
     def __l2_distance(self,x,y):
         """
         Returns the euclidean distance between two points in R^n
@@ -89,6 +95,53 @@ class Cluster:
             coordinates points to compute distance
         """
         return np.sqrt(np.dot(x-y,x-y))
+    #------------------------------------------------------------------------
+    def __GMM(self):
+        #initialization of model parameters
+        n, m = self.data.shape
+        phi = np.full(shape=self.k, fill_value=1/self.k)
+        weights = np.full(shape = self.data.shape, fill_value=1/self.k)
+        
+        #Selecting k distinct random means based on data to initialize the parameters
+        random_row = np.random.randint(low=0, high=n, size = self.k)
+        mu = [ self.data.iloc[row_index,:] for row_index in random_row ]
+        #Initializing sigmas matrices    
+        sigma = [ np.cov(self.data.T) for _ in range(self.k) ]
+        
+        #Iterating model with Expectation-Maximization algorithm
+        for iteration in range(self.iter):
+            #1.Expectation Step:
+            
+            
+            #predicting probability using initialized mixture model
+            likelihood = np.zeros((n, self.k))
+            for i in range(self.k):
+                distribution = multivariate_normal(mean = mu[i],cov= sigma[i])
+                likelihood[:,i] = distribution.pdf(self.data)
+            
+            #calculating responsability of data
+            numerator = likelihood * phi
+            denominator = numerator.sum(axis=1)[:, np.newaxis]
+            weights = numerator / denominator
+            phi = weights.mean(axis=0)
+            
+            
+            #2. Maximization Step:
+            
+            for i in range(self.k):
+                weight = weights[:, [i]]
+                total_weight = weight.sum()
+                mu[i] = (self.data * weight).sum(axis=0) / total_weight
+                sigma[i] = np.cov(self.data.T, 
+                                  aweights=(weight/total_weight).flatten(), 
+                                  bias=True)
+            
+        #returning clusterized dataframe:
+        cluster = np.argmax(weights, axis = 1)
+        GMM_df = self.data.copy()
+        GMM_df['cluster'] = cluster
+        return GMM_df
+    
     
 #proving data
 
@@ -99,9 +152,17 @@ if __name__ == "__main__":
     data_example = pd.DataFrame({'x':[0,1,2,1,0,6,7,5,6,8,7],
                              'y':[1,3,2,1,1,9,6,7,5,6,8]})
     
-    cluster = Cluster(data = data_example, method = 'k_means', k = 2, iter = 10)
-    cluster_data = cluster.fit_transform()
-    print(cluster_data)
-    sns.scatterplot(data = cluster_data, x = cluster_data.x, y = cluster_data.y,  hue = 'cluster')
-    plt.show()
+    #proving example with k-means:
     
+    cluster = Cluster(data = data_example, method = 'k_means', k = 2, iter = 10)
+    kmeans_clustering = cluster.fit_transform()
+    print(kmeans_clustering)
+    sns.scatterplot(data = kmeans_clustering, x = kmeans_clustering.x, y = kmeans_clustering.y,  hue = 'cluster')
+    #plt.show()
+    
+    #proving example with GMM:
+    cluster_gmm = Cluster(data = data_example, method = 'GMM_EM', k = 2, iter = 100)
+    gmm_clustering = cluster_gmm.fit_transform()
+    print(gmm_clustering)
+    sns.scatterplot(data = gmm_clustering, x = gmm_clustering.x, y = gmm_clustering.y,  hue = 'cluster')
+    plt.show()
