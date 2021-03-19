@@ -8,7 +8,7 @@ class Cluster:
     def __init__(self, data = None, method = 'k_means', k = None, iter = 5):
         """
         Current class performs data classification under numeric data,
-        using distinct algorithms (k_means, GMM_EM)
+        using distinct algorithms (k_means, GMM_EM, agglomerative)
         
         Parameters
         ----------
@@ -18,7 +18,8 @@ class Cluster:
             
         method: str
             Method that performs the classification. It'll be 'k_means' by default.
-            You can choose also the 'GMM_EM' method, based on Gaussian Mixture Models
+            You can choose also the 'agglomerative' method or the 'GMM_EM' method,
+            based on Gaussian Mixture Models
             
         k: int
             Number of clusters.
