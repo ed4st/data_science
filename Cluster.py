@@ -1,9 +1,15 @@
+"""Data Clustering"""
+
+# Author: Edgar Baquero <edgar.baquero@cimat.mx>
+
+
 import numpy as np
 from scipy.stats import multivariate_normal
+import random
 
 class Cluster:
     #----------------------------Constructor----------------------------
-    def __init__(self, method = 'k_means', k = None, iter = 5, kernel_type = 'gaussian'):
+    def __init__(self, method = 'k_means', k = None, iter = 5, kernel_type = 'gaussian', sigma = 1.5):
         """
         Current class performs data classification under numeric data,
         using distinct algorithms (k_means, GMM_EM, kk_means)
@@ -12,7 +18,7 @@ class Cluster:
         ----------            
         method: str
             Method that performs the classification. It'll be 'k_means' by default.
-            You can choose also the 'GMM_EM' method, based on Gaussian Mixture Models
+            You can also choose the 'GMM_EM' method, based on Gaussian Mixture Models
             or the 'kk_means' method, based on manifold learning clustering
             
         k: int
@@ -35,6 +41,7 @@ class Cluster:
         self.k = k
         self.iter = iter
         self.kernel_type = kernel_type
+        self.sigma = sigma
     #----------------------Class Methods----------------------
     def fit(self, data = None):
         """
@@ -182,67 +189,90 @@ class Cluster:
         return GMM_df
     
     
-    #kernel k-means implementation
-    def __kk_means(self):
-        n,d = self.data.shape
-        
-        #Selecting k distinct random means based on data to initialize the parameters
-        random_row = np.random.randint(low=0, high=n, size = self.k)
-        means = [ self.data.iloc[row_index,:] for row_index in random_row ]
-
-        
-        #creating an array wich contains the corresponding cluster:
-         
-        for _ in range(self.iter):
-            cluster = []
-            for row_ix in range(n):
-                #encoding based on kernel type:
-                if self.kernel_type == 'gaussian':    
-                    distances = [self.__gaussian_distance(self.data.iloc[row_ix], mean) for mean in means]
-                if self.kernel_type == 'polynomial':    
-                    distances = [self.__polynomial_distance(self.data.iloc[row_ix], mean) for mean in means]
-                    
-                cluster.append(np.argmin(distances))
-            #reloading means:
+    def __initialize_cluster(self):
+        input_data = self.data.to_numpy()
+        n_cluster = self.k
+        list_cluster_member = [[] for i in range(n_cluster)]
+        shuffled_data = input_data
+        np.random.shuffle(shuffled_data)
+        for i in range(0, input_data.shape[0]):
+            list_cluster_member[i%n_cluster].append(input_data[i,:])
             
-            for k in range(self.k):
-                #getting indices of the data related to cluster k
-                k_ix = [ix for ix, clus in enumerate(cluster) if clus == k]
-                #selecting kth cluster's data 
-                cluster_k = self.data.iloc[k_ix]
-                #reloading means:
-                means[k] = np.array(cluster_k.mean(axis = 0))
-                
-        #returning clusterized dataframe:
+        return list_cluster_member
+
+    def __gaussian_kernel(self, data1, data2, sigma):
+        delta =abs(np.subtract(data1, data2))
+        l2_distance = (np.square(delta).sum(axis=1))
+        result = np.exp(-(l2_distance)/(2*sigma**2))
+        return result
+
+
+    def __third_term(self, cluster_member):
+        result = 0
+        for i in range(0, cluster_member.shape[0]):
+            for j in range(0, cluster_member.shape[0]):
+                result = result + self.__gaussian_kernel(cluster_member[i, :], cluster_member[j, :], self.sigma)
+        result = result / (cluster_member.shape[0] ** 2)
+        return result
+
+    def __second_term(self, dataI, cluster_member):
+        result = 0
+        for i in range(0, cluster_member.shape[0]):
+            result = result + self.__gaussian_kernel(dataI, cluster_member[i,:], self.sigma)
+        result = 2 * result / cluster_member.shape[0]
+        return result
+
+    def __kk_means(self):
+        data = self.data.to_numpy()
+        
+        init_member = self.__initialize_cluster()
+        n_cluster = init_member.__len__()
+        #looping until converged
+        while(True):
+            
+            result_cluster = np.ndarray(shape=(data.shape[0], 0))
+            #assign data to cluster whose centroid is the closest one
+            for i in range(0, n_cluster):#repeat for all cluster
+                term3 = self.__third_term(np.asmatrix(init_member[i]))
+                matrix_3 = np.repeat(term3, data.shape[0], axis=0); matrix_3 = np.asmatrix(matrix_3)
+                matrix_2 = np.ndarray(shape=(0,1))
+                for j in range(0, data.shape[0]): #repeat for all data
+                    term2 = self.__second_term(data[j,:], np.asmatrix(init_member[i]))
+                    matrix_2 = np.concatenate((matrix_2, term2), axis=0)
+                matrix_2 = np.asmatrix(matrix_2)
+                result_cluster_i = np.add(-1*matrix_2, matrix_3)
+                result_cluster =\
+                    np.concatenate((result_cluster, result_cluster_i), axis=1)
+            kcluster = np.ravel(np.argmin(np.matrix(result_cluster), axis=1))
+        
+            list_cluster_member = [[] for l in range(self.k)]
+            for i in range(0, data.shape[0]):#assign data to cluster regarding cluster matrix
+                list_cluster_member[np.asscalar(kcluster[i])].append(data[i,:])
+            
+            #break when converged
+            boolAcc = True
+            for m in range(0, n_cluster):
+                prev = np.asmatrix(init_member[m])
+                current = np.asmatrix(list_cluster_member[m])
+                if (prev.shape[0] != current.shape[0]):
+                    boolAcc = False
+                    break
+                if (prev.shape[0] == current.shape[0]):
+                    boolPerCluster = (prev == current).all()
+                boolAcc = boolAcc and boolPerCluster
+                if(boolAcc==False):
+                    break
+            if(boolAcc==True):
+                break
+            #iterationCounter += 1
+            #update new cluster member
+            init_member = list_cluster_member
+            #newTime = np.around(time.time(), decimals=0)
+            #print("iteration-", iterationCounter, ": ", newTime - oldTime, " seconds")
+        
         KKMdf = self.data.copy()
-        KKMdf['cluster'] = cluster
+        KKMdf['cluster'] = kcluster
         return KKMdf
-    
-    def __gaussian_kernel(self, x, y):
-        """
-        Returns the kernel related to the two points 
-        given by the transformation of gaussian kernel
-        
-        Parameters
-        ----------
-        x, y: np.array
-            coordinates points to compute the kernel
-        """
-        #It's important to note that we are fixing sigma = 1.5
-        l2_distance = self.__l2_distance(x,y)
-        sigma = 1.5
-        e = 2.718281828
-        return e**(-(l2_distance**2)/(2*(1.5)**2))
 
-    #filling kernel matrix
-    def __kernel_matrix(self, method)
-        n = self.data.shape[0]
-        self.K = np.zeros((n,n))
-        for i in range(n):
-            for j in range(n):
-                if method == 'gaussian':
-                    self.K[i][j] = self.__gaussian_kernel(self.data.iloc[i],self.data.iloc[j])
         
-
-    
-    
+        
