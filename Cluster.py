@@ -35,6 +35,9 @@ class Cluster:
             kernel type used to compute manifold distances when using kernel 
             k-means ('kk_means') method.
             It'll be 'gaussian' by default
+            
+        sigma: float
+            Gaussian Kernel parametter.
         """
         #------------------Class attributtes------------------
         self.method = method
