@@ -37,7 +37,7 @@ class Cluster:
             It'll be 'gaussian' by default
             
         sigma: float
-            Gaussian Kernel parametter.
+            Gaussian Kernel parametter. You can write it as 1/alpha.
         """
         #------------------Class attributtes------------------
         self.method = method
