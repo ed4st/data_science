@@ -10,7 +10,6 @@ from sklearn.datasets import make_circles
 if __name__ == "__main__":
      
     #creating ramarkable dataset randomly:
-    
     X, y = make_blobs(
     n_samples=200, n_features=2, centers=3, cluster_std=0.5, shuffle=True,random_state=0)
     
