@@ -1,4 +1,4 @@
-from Cluster import Cluster #the class created (use help function for documentation)
+from Cluster import Cluster #the created class (use help function for documentation)
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
