@@ -58,6 +58,7 @@ if __name__=="__main__":
     # reading the image
     img = cv2.imread(input_img)
     orig_img = img.copy()
+    hsv_orig_img = cv2.cvtColor(img.copy(), cv2.COLOR_BGR2HSV)
  
     cv2.namedWindow("Imagen")
  
@@ -80,6 +81,10 @@ if __name__=="__main__":
     cv2.destroyAllWindows()
 
     cv2.imwrite(output_img, img)
+    
+    xaux, yaux = fglist[0]
+    print(orig_img[xaux,yaux])
+    print(hsv_orig_img[xaux,yaux])
     print('Número pixeles en el fondo:', len(bglist))
     print('Número pixeles en el objeto:', len(fglist))
 
@@ -89,12 +94,19 @@ if __name__=="__main__":
         b = orig_img[y, x, 0]
         g = orig_img[y, x, 1]
         r = orig_img[y, x, 2]
-        file1.write("%d,%d,%d,%d\n" % (b,g,r,0))
+
+        h = hsv_orig_img[y, x, 0]
+        s = hsv_orig_img[y, x, 1]
+        v = hsv_orig_img[y, x, 2]
+        file1.write("%d,%d,%d,%d,%d,%d,%d\n" % (b,g,r,h,s,v,0))
     for x,y in fglist:
         b = orig_img[y, x, 0]
         g = orig_img[y, x, 1]
         r = orig_img[y, x, 2]
-        file1.write("%d,%d,%d,%d\n" % (b,g,r,1))
+        h = hsv_orig_img[y, x, 0]
+        s = hsv_orig_img[y, x, 1]
+        v = hsv_orig_img[y, x, 2]
+        file1.write("%d,%d,%d,%d,%d,%d,%d\n" % (b,g,r,h,s,v,1))
 
 file1.close() 
         
